@@ -5,41 +5,53 @@ def main():
     ###--------governing equations--------###
 
     def conservationOfMass():
-        #equations go here
+        # equation for the conservation of mass
+        # takes in parameters for density, velocity, coordinate parameter, radial direction
+        # references numerical method in a loop
+        # returns ???
         return
 
     def continuity():
-        #equations go here
+        # equation for continuity
+        # create G(x)
+        # references numerical method in a loop
+        # returns ???
         return
 
     def perpendicularMomentum():
-        #equations go here
+        # equation for perpendicular momentum
+        # solves for the momentum equation of H(x)
+        # takes information from continuity
+        # returns ???
         return
 
     def energyConservation():
-        #equations go here
+        # equation for energy conservation
+        # returns ???
         return
 
     def speciesConservation():
-        #equations go here
-        #check if 2D or 3D
+        # equation for species conservation
+        # check if 2D or 3D
+        # returns ???
         return
 
-
-
-
-    ###--------other equations--------###
-
     def diffusionVelocity():
-        #equations go here
+        # equation for species conservation
+        # returns ???
         return
 
 
 
     ###--------Differencing scheme--------###
+    def numericalMethod():
+        # discretize here in a loop, ensure converging
+        # based on OPPDIF paper, create Newton's method, then time integration
+        # maybe returns 1 or 0 for converging/diverging?
+        
+        # takes parameters for current point and before point, Newton's method?
 
-        #discretize here in a loop, ensure converging
-        #based on OPPDIF paper, create Newton's method, then time integration
+        return
 
 
 
