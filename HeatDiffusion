@@ -1,3 +1,48 @@
 import numpy as np 
 import matplotlib.yplot as plt
 
+
+"""
+Initial variables:
+-------------------
+
+L length
+n nodes
+T0 temperature at left wall
+
+vector of temperatures that define temperature at each node
+T1s
+T2s
+
+dx = L/n
+alpha
+t_final
+dt = 0.1
+
+x = np.linspace(dx/2, L-dx/2, n)    create a reference point at the center of each node: dx/2, starting at dx/2, ending at L-dx/2
+
+T = np.ones(n)*T0   creates a column that is 1 row, n columns, multiplied by starting temperature
+dTdt = np.empty(n)  initializes a vector to fill later with derivatives
+
+t = np.arange(0, t_final, dt)   time vector
+
+
+
+Computation:
+-------------
+
+for j in range(1, len(t)):       time steps, "len" for length
+    plt.clf
+    for i in range(1, n-1):         number of elements, evaluate derviative for each node
+        dTdt[i] = alpha*(-(T[i]-T[i-1])/dx**2+(T[i+1]-T[i])/dx**2)      ** for exponent
+    dTdt[0] = alpha*(-(T[0]-T1s/dx**2+(T[1]-T[0])/dx**2)      special condition for left boundary, T[i-1] can't be negative, so which is why we have T1s
+    dTdt[n-1] = alpha*(-(T[n-1]-T[n-2]/dx**2+(T2s-T[n-1])/dx**2)        no T[2] node, we we need other surface boundary condition T2s
+    T = T + dTdt*dt
+    plt.figure(1)
+    plt.plot(x,T)
+    plt.axis([0, L, 0, 50])    0-L on x axis, 0-50 on y axis
+    plt.xlabel('Distance (m)')
+    plt.ylabel('Temperature (C)')
+    plt.show
+
+"""
