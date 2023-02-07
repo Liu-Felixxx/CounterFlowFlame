@@ -32,8 +32,10 @@ t = np.arange(0, t_final, dt)       # vector of time steps
 
 
 # Computation
-for i in range(1, len(t)):       # time step loop
-    plt.clf()
+plt.ion()                    # interactive mode
+
+for i in range(0, len(t)):       # time step loop
+    plt.clf()                    # clear figure
     for j in range(1, n-1):         # temperatures of each node in i time step
         dTdt[j] = alpha * (-(T[j]-T[j-1])/dx**2 + (T[j+1]-T[j])/dx**2)        # 1D heat diffusion equation
     dTdt[0] = alpha * (-(T[0]-T1s)/dx**2 + (T[1]-T[0])/dx**2)                 # special boundary condition for left wall
@@ -47,8 +49,6 @@ for i in range(1, len(t)):       # time step loop
     plt.ylabel('Temperature (C)')
     plt.show()
     plt.pause(0.01)
-
-
 
 
 
