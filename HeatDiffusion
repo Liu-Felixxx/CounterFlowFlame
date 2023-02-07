@@ -1,5 +1,42 @@
+"""
+-----------------------------------------------------------
+One Dimensional Heat Diffusion Simulation
+
+Two walls separated by length L of different temperatures 
+solving for thediffusion of heat in between the walls
+-----------------------------------------------------------
+"""
+
 import numpy as np 
 import matplotlib.yplot as plt
+
+
+# Initial Variables
+L = 0.1                 # meters, length L for the distance between the two walls
+n = 10                  # number of cells or nodes between the walls
+T0 = 0                  # Celcius, initial temperature of region in between walls
+T1s = 40                # Celcius, initial temperature of the left wall
+T1s = 20                # Celcius, initial temperature of the right wall
+dx = L/n                # length of cell
+alpha = 0.0001          # Watts/(meter * Kelvin), thermal conductivity
+t_final = 60            # seconds, final time
+dt = 0.1                # time step
+
+x = np.linspace(dx/2, L-dx/2, n)    # vector of reference points for each node at the center of the node
+
+T = np.ones(n) * T0     # vector of starting temperatures
+dTdt = np.empty(n)      # vector for temperature derivatives
+
+t = np.arange(0, t_final, dt)       # vector of time steps
+
+
+
+# Computation
+
+
+
+
+
 
 
 """
