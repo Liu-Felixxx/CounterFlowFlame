@@ -8,7 +8,7 @@ solving for thediffusion of heat in between the walls
 """
 
 import numpy as np 
-import matplotlib.yplot as plt
+import matplotlib.pyplot as plt
 
 
 # Initial Variables
@@ -16,7 +16,7 @@ L = 0.1                 # meters, length L for the distance between the two wall
 n = 10                  # number of cells or nodes between the walls
 T0 = 0                  # Celcius, initial temperature of region in between walls
 T1s = 40                # Celcius, initial temperature of the left wall
-T1s = 20                # Celcius, initial temperature of the right wall
+T2s = 20                # Celcius, initial temperature of the right wall
 dx = L/n                # length of cell
 alpha = 0.0001          # Watts/(meter * Kelvin), thermal conductivity
 t_final = 60            # seconds, final time
@@ -35,10 +35,10 @@ t = np.arange(0, t_final, dt)       # vector of time steps
 for i in range(1, len(t)):       # time step loop
     plt.clf()
     for j in range(1, n-1):         # temperatures of each node in i time step
-        dTdt[i] = alpha * (-(T[i]-T[i-1])/dx**2 + (T[i+1]-T[i])/dx**2)        # 1D heat diffusion equation
+        dTdt[j] = alpha * (-(T[j]-T[j-1])/dx**2 + (T[j+1]-T[j])/dx**2)        # 1D heat diffusion equation
     dTdt[0] = alpha * (-(T[0]-T1s)/dx**2 + (T[1]-T[0])/dx**2)                 # special boundary condition for left wall
     dTdt[n-1] = alpha * (-(T[n-1]-T[n-2])/dx**2 + (T2s-T[n-1])/dx**2)         # special boundary condition for the right wall
-    T[j] = T[j] + dTdt*dt           # continually update temperature in the T vector for each time step
+    T = T + dTdt*dt           # continually update temperature in the T vector for each time step
 
     plt.figure(1)
     plt.plot(x,T)
@@ -46,7 +46,7 @@ for i in range(1, len(t)):       # time step loop
     plt.xlabel('Distance (m)')
     plt.ylabel('Temperature (C)')
     plt.show()
-    plt.pause(0.005)
+    plt.pause(0.01)
 
 
 
