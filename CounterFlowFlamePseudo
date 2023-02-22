@@ -8,9 +8,7 @@ One Dimensional Counter Flow Flame
 import numpy as np
 import matplotlib.pyplot as plt
 
-INSTALL CANTERA
-
-# Initial Variables
+#----- Initial Variables -----#
 """
 L               # meters, length L for the distance between the two walls
 n               # number of cells/nodes between the walls
@@ -19,7 +17,6 @@ T0              # initial temperature of region in between walls
 t_final         # seconds, final time
 dt              # time step
 
-
 x = np.linspace(dx/2, L-dx/2, n)        # vector of reference points for each node, at the center of the node
 
 T = np.ones(n) * T0     # vector of starting temperatures
@@ -27,10 +24,22 @@ dTdt = np.empty(n)      # vector for temperature derivatives
 
 t = np.arange(0, t_final, dt)       # vector of time steps
 
+
+# Mass Conservation
+rho             # vector for density
+xi              # radial direction vector
+u               # x-dir velocity vector
+
+# Species Conservation
+# k for the number of species
+Yk              # vector for mass fraction for each of species
+Vk              # vector for diffusion velocity for each of species
+
+
 """
 
 
-# Computation
+#----- Computation -----#
 """
 for i in range(0, len(t))           # time step loop
     for j in range(1, n-1)          # temperatures of each node in i time step
