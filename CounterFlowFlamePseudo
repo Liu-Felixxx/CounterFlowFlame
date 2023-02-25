@@ -10,32 +10,54 @@ import matplotlib.pyplot as plt
 
 #----- Initial Variables -----#
 """
-L               # meters, length L for the distance between the two walls
-n               # number of cells/nodes between the walls
-dx = L/n        # length of cell
-T0              # initial temperature of region in between walls
-t_final         # seconds, final time
-dt              # time step
+L                   # meters, length L for the distance between the two walls
+n                   # number of cells/nodes between the walls
+dx = L/n            # length of cell
+T0                  # initial temperature of region in between walls
+t_final             # seconds, final time
+dt                  # time step
+r                   # radius of flow
 
-x = np.linspace(dx/2, L-dx/2, n)        # vector of reference points for each node, at the center of the node
+T0_fuel             # initial temperature of fuel
+T0_oxidizer         # initial temperature of oxidizer
 
-T = np.ones(n) * T0     # vector of starting temperatures
-dTdt = np.empty(n)      # vector for temperature derivatives
+u0_fuel             # initial velocity of fuel
+u0_oxidizer         # initial velocity of oxidizer
+rho0_fuel           # initial density of fuel
+rho0_oxidizer       # initial density of oxidizer
 
-t = np.arange(0, t_final, dt)       # vector of time steps
+F0_fuel = 0.5*(u0_fuel * rho0_fuel)                 # initial axial velocity term of fuel
+F0_oxidizer = 0.5*(u0_oxidizer * rho0_oxidizer)     # initial axial velocity term of oxidizer
+G0_fuel = 0                                         # initial radial velocity term of fuel
+G0_oxidizer = 0                                     # initial radial velocity term of oxidizer
+
+# dependent variables
+Yk                  # vector of species concentration
+T                   # temperature vector
+F                   # axial velocity vector
+G                   # radial velocity vector
+H                   # radial momentum vector
+
+Vk                  # vector of diffusion velocity of each species
+"""
+
+#----- Constants -----#
+"""
+mu                  # viscosity
+Cp                  # heat capacity
+lambda              # heat diffusivity
+omega_dot           # vector of molar production rate of each species
+h                   # vector of enthalpy of each species
+"""
 
 
-# Mass Conservation
-rho             # vector for density
-xi              # radial direction vector
-u               # x-dir velocity vector
-
-# Species Conservation
-# k for the number of species
-Yk              # vector for mass fraction for each of species
-Vk              # vector for diffusion velocity for each of species
-
-
+#----- Derivative Vectors -----#
+"""
+dTdt                # temperature derivative
+dYdt                # species concentration derivative, 2D vector for each species
+dFdt                # axial velocity derivative
+dGdt                # radial velocity derivative
+dHdt                # radial momentum derivative
 """
 
 
@@ -43,7 +65,20 @@ Vk              # vector for diffusion velocity for each of species
 """
 for i in range(0, len(t))           # time step loop
     for j in range(1, n-1)          # temperatures of each node in i time step
-        # Conservation of mass
+        # Continuity
+        something
+
+        # Radial momentum
+        something
+
+        # Axial Momentum
+        something
+
+        # Species conservation
+        something
+
+        # Energy
+        something
         
 
 """
