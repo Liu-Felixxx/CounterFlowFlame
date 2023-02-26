@@ -34,7 +34,8 @@ G0_oxidizer = 0                                     # initial radial velocity te
 # dependent variables
 Yk                  # vector of species concentration
 T                   # temperature vector
-F                   # axial velocity vector
+# F                   # axial velocity vector
+P                   # pressure vector
 G                   # radial velocity vector
 H                   # radial momentum vector
 
@@ -48,16 +49,21 @@ Cp                  # heat capacity
 lambda              # heat diffusivity
 omega_dot           # vector of molar production rate of each species
 h                   # vector of enthalpy of each species
+Wk                  # vector for W of each species
+
+sum_h_omega_dot     # summation of all enthalpy multiplied with molar production rate of all species (for energy equation)
+sum_Cp_Y_V          # summation of all heat capacity multiplied with concentration and diffustion velocity of all species (for energy equation)
 """
 
 
 #----- Derivative Vectors -----#
 """
-dTdt                # temperature derivative
+dTdt                # temperature derivative vector
 dYdt                # species concentration derivative, 2D vector for each species
-dFdt                # axial velocity derivative
-dGdt                # radial velocity derivative
-dHdt                # radial momentum derivative
+# dFdt                # axial velocity derivative
+dPdt                # pressure derivative vector
+dGdt                # radial velocity derivative vector
+dHdt                # radial momentum derivative vector
 """
 
 
@@ -66,19 +72,28 @@ dHdt                # radial momentum derivative
 for i in range(0, len(t))           # time step loop
     for j in range(1, n-1)          # temperatures of each node in i time step
         # Continuity
-        something
+        dGdt[j] = -G[j] - ((F[j] - F[j-1])/dx)
 
         # Radial momentum
-        something
+        dHdt[j] = -H[j] + (1/r)*((P[j] - P[j-1])/dx)
 
         # Axial Momentum
-        something
+        dPdt = (-(P[j] - P[j-1])/dx) + 2*(1/dx)*((F[j]G[j])/rho) + ((G[j]**2)/rho) - (1/dx)*(mu * (1/dx) * (G[j]/rho))
 
-        # Species conservation
-        something
+        for k in range(1, len(Yk))          # loop for every species
+            # Species conservation            
+            dYdt[k][j] = (1/rho)*(omega_dot[k]*W[k] - rho*u*((Y[k][j] - Y[k][j-1])/dx) - (rho * Y[k][j] * Vk[k][j])/dx)
 
         # Energy
-        something
+        dTdt[j] = (1/rho)*((-1/Cp)*sum_h_omega_dot - (rho/Cp)*(sum_Cp_Y_V)*((T[j] - T[j-1])/dx) + (1/Cp)((-lambda(T[j] - T[j-1])/dx) + (-lambda(T[j+1] - T[j]))/dx) - rho*u*((T[j] - T[j-1])/dx)
+
+    G[i] = G[i] + dGdt[i]
+    H[i] = H[i] + dHdt[i]
+    P[i] = P[i] + dPdt[i]
+    T[i] = T[i] + dTdt[i]
+    for k in range(1, len(Yk))
+        Yk[k][i] = Yk[k][i] + dYdt[k][i]
+        
         
 
 """
