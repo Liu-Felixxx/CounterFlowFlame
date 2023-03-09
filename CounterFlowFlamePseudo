@@ -9,22 +9,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 #----- Initial Variables -----#
-"""
-L                   # meters, length L for the distance between the two walls
-n                   # number of cells/nodes between the walls
-dx = L/n            # length of cell
-T0                  # initial temperature of region in between walls
-t_final             # seconds, final time
-dt                  # time step
-r                   # radius of flow
 
-T0_fuel             # initial temperature of fuel
-T0_oxidizer         # initial temperature of oxidizer
+L = 2                       # meters, length L for the distance between the two walls
+n = 15                      # number of cells/nodes between the walls
+dx = L/n                    # length of cell
+T0 = 300                    # initial temperature of mixing region
+t_final = 200               # seconds, final time
+dt = 0,1                    # time step
+r = 0.7                     # radius of flow
+n_species = 5               # number of species
 
-u0_fuel             # initial velocity of fuel
-u0_oxidizer         # initial velocity of oxidizer
-rho0_fuel           # initial density of fuel
-rho0_oxidizer       # initial density of oxidizer
+T0_fuel = 300               # initial temperature of fuel
+T0_oxidizer = 300           # initial temperature of oxidizer
+
+u0_fuel = 100               # initial velocity of fuel
+u0_oxidizer = 100           # initial velocity of oxidizer
+rho0_fuel = 1               # initial density of fuel       UNSURE
+rho0_oxidizer = 1           # initial density of oxidizer       UNSURE
 
 F0_fuel = 0.5*(u0_fuel * rho0_fuel)                 # initial axial velocity term of fuel
 F0_oxidizer = 0.5*(u0_oxidizer * rho0_oxidizer)     # initial axial velocity term of oxidizer
@@ -32,68 +33,69 @@ G0_fuel = 0                                         # initial radial velocity te
 G0_oxidizer = 0                                     # initial radial velocity term of oxidizer
 
 # dependent variables
-Yk                  # vector of species concentration
-T                   # temperature vector
-# F                   # axial velocity vector
-P                   # pressure vector
+Yk = [[0]*n_species]*n      # vector of species concentration
+T = np.ones(n) * T0         # temperature vector
+F = np.zeros(n)             # axial velocity vector
 G                   # radial velocity vector
 H                   # radial momentum vector
 
 Vk                  # vector of diffusion velocity of each species
-"""
+
 
 #----- Constants -----#
-"""
+
 mu                  # viscosity
 Cp                  # heat capacity
-lambda              # heat diffusivity
+lambda_diffusivity  # heat diffusivity
 omega_dot           # vector of molar production rate of each species
 h                   # vector of enthalpy of each species
 Wk                  # vector for W of each species
 
 sum_h_omega_dot     # summation of all enthalpy multiplied with molar production rate of all species (for energy equation)
 sum_Cp_Y_V          # summation of all heat capacity multiplied with concentration and diffustion velocity of all species (for energy equation)
-"""
+
 
 
 #----- Derivative Vectors -----#
-"""
+
 dTdt                # temperature derivative vector
 dYdt                # species concentration derivative, 2D vector for each species
-# dFdt                # axial velocity derivative
-dPdt                # pressure derivative vector
+dFdt                # axial velocity derivative
 dGdt                # radial velocity derivative vector
 dHdt                # radial momentum derivative vector
-"""
+
 
 
 #----- Computation -----#
-"""
-for i in range(0, len(t))           # time step loop
-    for j in range(1, n-1)          # temperatures of each node in i time step
+
+for i in range(0, len(t)):           # time step loop
+    for j in range(1, n-1):          # variables of each node in i time step
         # Continuity
         dGdt[j] = -G[j] - ((F[j] - F[j-1])/dx)
 
         # Radial momentum
-        dHdt[j] = -H[j] + (1/r)*((P[j] - P[j-1])/dx)
+        # dHdt[j] = -H[j] + (1/r)*((P[j] - P[j-1])/dx)  Radial momentum is a constant value
 
         # Axial Momentum
         dPdt = (-(P[j] - P[j-1])/dx) + 2*(1/dx)*((F[j]G[j])/rho) + ((G[j]**2)/rho) - (1/dx)*(mu * (1/dx) * (G[j]/rho))
 
-        for k in range(1, len(Yk))          # loop for every species
+        for k in range(1, len(Yk)):          # loop for every species
             # Species conservation            
             dYdt[k][j] = (1/rho)*(omega_dot[k]*W[k] - rho*u*((Y[k][j] - Y[k][j-1])/dx) - (rho * Y[k][j] * Vk[k][j])/dx)
 
         # Energy
-        dTdt[j] = (1/rho)*((-1/Cp)*sum_h_omega_dot - (rho/Cp)*(sum_Cp_Y_V)*((T[j] - T[j-1])/dx) + (1/Cp)((-lambda(T[j] - T[j-1])/dx) + (-lambda(T[j+1] - T[j]))/dx) - rho*u*((T[j] - T[j-1])/dx)
+        dTdt[j] = (1/rho)*((-1/Cp)*sum_h_omega_dot - (rho/Cp)*(sum_Cp_Y_V)*((T[j] - T[j-1])/dx) + (1/Cp)*((-lambda_diffusivity*(T[j] - T[j-1]))/dx) + ((-lambda_diffusivity(T[j+1] - T[j]))/dx) - rho*u*((T[j] - T[j-1])/dx))
+
+        # Axial Velocity
+        G[j] = (F[j] - F[0])/dx
 
     G[i] = G[i] + dGdt[i]
     H[i] = H[i] + dHdt[i]
     P[i] = P[i] + dPdt[i]
     T[i] = T[i] + dTdt[i]
-    for k in range(1, len(Yk))
+    for k in range(1, len(Yk)):
         Yk[k][i] = Yk[k][i] + dYdt[k][i]
         
         
 
-"""
+
