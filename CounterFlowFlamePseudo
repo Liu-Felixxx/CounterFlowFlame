@@ -39,7 +39,7 @@ rho0_fuel                   # initial density of fuel
 rho0_oxidizer               # initial density of oxidizer 
 
 # Dependent Variables
-Y                          # vector of species concentration, rows = cells; columns = species
+Y                           # vector of species concentration, rows = cells; columns = species
 T                           # temperature vector
 G                           # radial velocity vector
 
@@ -59,6 +59,7 @@ lambda_diffusivity          # heat diffusivity
 omega_dot                   # vector of molar production rate of each species
 h                           # vector of enthalpy of each species
 Wk                          # vector for W of each species
+DTk                         # vector of thermal diffusion coefficients of each species
 
 sum_h_omega_dot             # summation of all enthalpy multiplied with molar production rate of all species (for energy equation)
 sum_Cp_Y_V                  # summation of all heat capacity multiplied with concentration and diffustion velocity of all species (for energy equation)
@@ -74,16 +75,16 @@ dGdt                        # radial velocity derivative vector
 
 
 #----- Computation -----#
-for i in range(0, len(t)):           # time step loop
-    for j in range(1, n-1):          # variables of each node in i time step
+for i in range(0, len(t)):                      # time step loop
+    for j in range(1, n-1):                     # variables of each node in i time step
         
         # Species conservation  
-        for k in range(0, len(Yk)-1):          # loop for every species
+        for k in range(0, len(Yk)-1):           # loop for every species
             
             # Mixture Averaged Diffusion Coefficient
             D_km[k][j] = (1-Y[k][j])/sum_Xj_Djk
             # Diffusion Velocity
-            V_diffusion[k][j] = -(1/X[k])*D_km
+            V_diffusion[k][j] = -(1/X[k])*D_km*((X[k][j] - X[k][j-1])/dx) - DTk[k]/(rho[i]*Y[k])*(1/T[j])*((T[j] - T[j-1]/dx))
             # Species Conservation          
             dYdt[k][j] = (1/rho[i])*(omega_dot[k]*W[k] - F[j]*((Y[k][j] - Yk[k][j-1])/dx) - (rho[i] * Yk[k][j] * V_diffusion[k][j])/dx)
         
@@ -93,9 +94,6 @@ for i in range(0, len(t)):           # time step loop
         # Energy
         dTdt[j] = (1/rho[i])*((-1/Cp)*sum_h_omega_dot - (rho/Cp)*(sum_Cp_Y_V)*((T[j] - T[j-1])/dx) + (1/Cp)*((-lambda_diffusivity*(T[j] - T[j-1]))/dx) + ((-lambda_diffusivity(T[j+1] - T[j]))/dx) - F[j]((T[j] - T[j-1])/dx))
 
-        # Axial Velocity
-        G[j] = (F[j] - F[0])/dx
-
         # Update Variables
         G[j] = G[j] + dGdt[j]*dt
         T[j] = T[j] + dTdt[j]*dt
@@ -103,6 +101,8 @@ for i in range(0, len(t)):           # time step loop
             Yk[k][j] = Yk[k][j] + dYdt[k][j]*dt
 
         F[j+1] = F[j] + G[j]*dx
+        # update rho[j]
+        # update H[j]
 
     
         
