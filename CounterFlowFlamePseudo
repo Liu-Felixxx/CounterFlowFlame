@@ -88,15 +88,15 @@ for i in range(0, len(t)):                      # time step loop
             # Species Conservation          
             dYdt[k][j] = (1/rho[i])*(omega_dot[k]*W[k] - F[j]*((Y[k][j] - Yk[k][j-1])/dx) - (rho[i] * Yk[k][j] * V_diffusion[k][j])/dx)
         
-        # Continuity
+        # Momentum
         dGdt = -H[j] + ((F[j]*G[j])/rho[i])/dx - (2*G[j]^2)/rho[i] - (mu*(G[j]/rho[i])/dx)/dx
 
         # Energy
         dTdt[j] = (1/rho[i])*((-1/Cp)*sum_h_omega_dot - (rho/Cp)*(sum_Cp_Y_V)*((T[j] - T[j-1])/dx) + (1/Cp)*((-lambda_diffusivity*(T[j] - T[j-1]))/dx) + ((-lambda_diffusivity(T[j+1] - T[j]))/dx) - F[j]((T[j] - T[j-1])/dx))
 
         # Update Variables
-        G[j] = G[j] + dGdt[j]*dt
-        T[j] = T[j] + dTdt[j]*dt
+        G1[j] = G0[j] + dGdt[j]*dt
+        T1[j] = T0[j] + dTdt[j]*dt
         for k in range(1, len(Yk)):
             Yk[k][j] = Yk[k][j] + dYdt[k][j]*dt
 
@@ -104,7 +104,7 @@ for i in range(0, len(t)):                      # time step loop
         # update rho[j]
         # update H[j]
 
-    
+G0 = G1    
         
         
 
