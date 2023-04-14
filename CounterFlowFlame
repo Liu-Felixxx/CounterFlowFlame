@@ -1,6 +1,8 @@
 """
 ---------------------------------------
 One Dimensional Counter Flow Flame
+
+Felix Liu
 ---------------------------------------
 
 """
@@ -9,101 +11,5 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cantera as ct
 
-#----- Initial Variables -----#
-
-L = 2                       # meters, length L for the distance between the two walls
-n = 15                      # number of cells/nodes between the walls
-dx = L/n                    # length of cell
-T0 = 300                    # initial temperature of mixing region
-t_final = 10               # seconds, final time
-dt = 0.1                    # time step
-r = 0.7                     # radius of flow
-n_species = 5               # number of species
-t = np.arange(0, t_final, dt)       # vector of time steps
-
-T0_fuel = 300               # initial temperature of fuel
-T0_oxidizer = 300           # initial temperature of oxidizer
-
-u0_fuel = 100               # initial velocity of fuel
-u0_oxidizer = 100           # initial velocity of oxidizer
-rho0_fuel = 1               # initial density of fuel       UNSURE
-rho0_oxidizer = 1           # initial density of oxidizer       UNSURE
-
-F0_fuel = 0.5*(u0_fuel * rho0_fuel)                 # initial axial velocity term of fuel
-F0_oxidizer = 0.5*(u0_oxidizer * rho0_oxidizer)     # initial axial velocity term of oxidizer
-G0_fuel = 0                                         # initial radial velocity term of fuel
-G0_oxidizer = 0                                     # initial radial velocity term of oxidizer
-
-# dependent variables
-Y = [[0]*n]*n_species      # vector of species concentration, rows = cells; columns = species
-T = np.ones(n) * T0         # temperature vector
-F = np.zeros(n) *T0_fuel            # axial velocity vector
-G = np.ones(n) * G0_fuel             # radial velocity vector
-H = 1                          # radial momentum vector
-rho = 1                        # total density vector
-
-V_diffusion = [[1]*n]*n_species
-[[1]*n]*n_species
-D_km = [[1]*n]*n_species
-X = [[1]*n]*n_species
-
-
-#----- Constants -----#
-
-mu = 1                 # viscosity
-Cp = 1                 # heat capacity
-lambda_diffusivity = 1  # heat diffusivity
-omega_dot = np.ones(n)           # vector of molar production rate of each species
-h = np.ones(n)                  # vector of enthalpy of each species
-Wk = np.ones(n)                 # vector for W of each species
-DTk = np.ones(n)
-
-sum_h_omega_dot = 1    # summation of all enthalpy multiplied with molar production rate of all species (for energy equation)
-sum_Cp_Y_V = 1         # summation of all heat capacity multiplied with concentration and diffustion velocity of all species (for energy equation)
-sum_Xj_Djk = 1
-
-
-
-#----- Derivative Vectors -----#
-
-dTdt = np.empty(n)                # temperature derivative vector
-dYdt = np.empty(n)                # species concentration derivative, 2D vector for each species
-dFdt = np.empty(n)                # axial velocity derivative
-dGdt = np.empty(n)                # radial velocity derivative vector
-dHdt = np.empty(n)                # radial momentum derivative vector
-
-
-
-#----- Computation -----#
-for i in range(0, len(t)):                      # time step loop
-    for j in range(1, n-1):                     # variables of each node in i time step
-        
-        # Species conservation  
-        for k in range(0, len(Y)-1):           # loop for every species
-            
-            # Mixture Averaged Diffusion Coefficient
-            D_km[k][j] = (1-Y[k][j])/sum_Xj_Djk
-            # Diffusion Velocity
-            V_diffusion[k][j] = -(1/X[k][j])*D_km[k][j]*((X[k][j] - X[k][j-1])/dx) - DTk[k]/(rho[i]*Y[k][j])*(1/T[j])*((T[j] - T[j-1]/dx))
-            # Species Conservation          
-            dYdt[k][j] = (1/rho[i])*(omega_dot[k]*W[k] - F[j]*((Y[k][j] - Y[k][j-1])/dx) - (rho[i] * Y[k][j] * V_diffusion[k][j])/dx)
-        
-        # Continuity
-        dGdt = -H[j] + ((F[j]*G[j])/rho[i])/dx - (2*G[j]^2)/rho[i] - (mu*(G[j]/rho[i])/dx)/dx
-
-        # Energy
-        dTdt[j] = (1/rho[i])*((-1/Cp)*sum_h_omega_dot - (rho/Cp)*(sum_Cp_Y_V)*((T[j] - T[j-1])/dx) + (1/Cp)*((-lambda_diffusivity*(T[j] - T[j-1]))/dx) + ((-lambda_diffusivity(T[j+1] - T[j]))/dx) - F[j]((T[j] - T[j-1])/dx))
-
-        # Update Variables
-        G[j] = G[j] + dGdt[j]*dt
-        T[j] = T[j] + dTdt[j]*dt
-        for k in range(1, len(Yk)):
-            Yk[k][j] = Yk[k][j] + dYdt[k][j]*dt
-
-        F[j+1] = F[j] + G[j]*dx
-        # update rho[j]
-        # update H[j]
-        
-        
-
+gas1 = ct.Solution('gri30.yaml')
 
