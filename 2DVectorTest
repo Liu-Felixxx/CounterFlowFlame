@@ -1,8 +1,10 @@
 
-n = 15
-n_species = 5
-t = 2
+print('hello')
 
-Yk = [[[0]*n]*n_species]*t
+# n = 15
+# n_species = 5
+# t = 2
 
-print(Yk) 
+# Yk = [[[0]*n]*n_species]*t
+
+# print(Yk) 
