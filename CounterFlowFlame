@@ -6,9 +6,213 @@ Felix Liu
 ---------------------------------------
 
 """
+# Notes: change n_species, n_points 
+sub = 1
+
+# Questions
+# what is xx? Is that an array of input/independent variables?
+# what is ff? Is that an array of return values?
+# ctrl+f: 
+#       Q3: What is the set(T, P, Y) for?
+#       Q4: How to solve for radial momentum?
+#       Q5: What is the pressure gradient eigenvalue?
 
 import numpy as np
-import matplotlib.pyplot as plt
+import cantera as ct
 
-gas1 = ct.Solution('gri30.yaml')
+
+
+
+
+
+
+#-------------------------------------------------------------------------------------
+# governingEqnsTransient
+# def governingEqnsTransient(dist_grid, xx, model, ...) 
+#-------------------------------------------------------------------------------------
+
+# function parameters
+dist_grid = []                              # points in main simulation
+gas = ct.Solution(model)                    # gas used in main simulation
+xx = []                                     # list of independent variables
+
+# function return
+ff = []
+
+# Constants
+R = 8314                                    # gas constant, J/kmol/K
+
+n_species = ct.nSpecies(gas)                # number of species
+n_points = len(dist_grid)                   # number of nodes
+
+
+# Grids
+X = [[0]*n_points] * n_species              # grid of rows: species; columns: node
+Y = [[0]*n_points] * n_species
+rho = [0]*n_points
+u = [0]*n_points
+
+F = [0]*n_points
+V = [0]*n_points
+T = [0]*n_points
+H = [0]*n_points
+#------------------- REVISE
+mwm = [0]*n_points                          # mean molecular weight
+mixdiffcof_grid = [[0]*n_points] * n_species        
+mu = [0]*n_points
+therm_cond = [0]*n_points
+
+dYdx = [[0]*n_points] * n_species
+dudx = [0]*n_points
+dTdx = [0]*n_points
+dFdx = [0]*n_points
+dVdx = [0]*n_points
+dHdx = [0]*n_points
+#------------------- REVISE
+spe_diff_flux = [[0]*(n_points-1)] * n_species
+mom_diff_flux = [0]*(n_points-1)
+ene_diff_flux = [0]*(n_points-1)
+
+
+# Midpoint initialization
+T_mid = [0]*(n_points-1)
+Y_mid = [[0]*n_points] * (n_species-1)
+rho_mid = [0]*(n_points-1)
+mvm_mid = [0]*(n_points-1)
+mixdiffcof_mid = [[0]*n_points] * (n_species-1)
+mu_mid = [0]*(n_points-1)
+therm_cond_mid = [0]*(n_points-1)
+
+
+# Initialize
+for i in range(n_points):
+    # initialize Y, F, V, T, H
+    for j in range(n_species):
+        Y[j,i] = xx[j+(i-1)*(n_species+4)]
+    F[i] = xx(n_species+1+(i-1)*(n_species+4))
+    V[i] = xx(n_species+2+(i-1)*(n_species+4))
+    T[i] = xx(n_species+3+(i-1)*(n_species+4))
+    H[i] = xx(n_species+4+(i-1)*(n_species+4))
+
+for i in range(n_points):
+    # initialize X, rho, u, mwm, mixdiffcof, mu, therm_cond
+    # set(gas, 'T', T_grid(i) , 'P', p, 'Y', Y_grid(:,i));          Q3
+    x = sub
+
+mw_species = sub                            # molecularWeights(gas)
+
+# Gradients
+for i in range(1, (n_points-1)):
+    if u[i] >= 0:
+        for j in range(n_species):
+            dYdx[j,i] = (Y[j,i] - Y[j,i-1])/(dist_grid[i] - dist_grid[i-1])      # differential change in species fraction
+        dudx[i] = (u[i] - u[i-1])/(dist_grid[i] - dist_grid[i-1])                # differential change in u velocity
+        dTdx[i] = (T[i] - T[i-1])/(dist_grid[i] - dist_grid[i-1])                # differential change in temperature
+        dFdx[i] = (F[i] - F[i-1])/(dist_grid[i] - dist_grid[i-1])                # differential change in F axial velocity
+        dVdx[i] = (V[i] - V[i-1])/(dist_grid[i] - dist_grid[i-1])                # differential change in V velocity
+        dHdx[i] = (H[i] - H[i-1])/(dist_grid[i] - dist_grid[i-1])                # differential change in H radial momentum
+    else:
+        for j in range(n_species):
+            dYdx[j,i] = (Y[j,i+1] - Y[j,1])/(dist_grid[i+1] - dist_grid[i]) 
+        dudx[i] = (u[i+1] - u[i])/(dist_grid[i+1] - dist_grid[i]) 
+        dTdx[i] = (T[i+1] - T[i])/(dist_grid[i+1] - dist_grid[i]) 
+        dFdx[i] = (F[i+1] - F[i])/(dist_grid[i+1] - dist_grid[i]) 
+        dVdx[i] = (V[i+1] - V[i])/(dist_grid[i+1] - dist_grid[i]) 
+        dHdx[i] = (H[i+1] - H[i])/(dist_grid[i+1] - dist_grid[i]) 
+
+# Midpoint Properties
+for i in range(n_points - 1):
+    T_mid[i] = (T[i] + T[i+1])/2
+    for j in range(n_species):
+        Y_mid[j,i] = (Y[j,i] + Y[j,i+1])/2
+    # cantera
+    # set(gas)
+    # Y_mid = massFractions(gas)
+    # rho_mid[i] = density(gas)
+    # mwm_mid[i] = meanMolecularWeight(gas)
+    # mixdiffcof_mid = mixDiffCoeffs(gas)
+    # mu_mid[i] = viscosity(gas)
+    # therm_cond_mid[i] = thermalConductivity(gas)
+
+
+# Diffusive Flux
+for i in range(n_points-1):
+    sum = 0
+    for j in range(n_species):
+        spe_diff_flux[j,i] = - mw_species[j] * rho_mid[i]/mwm_mid[i]*mixdiffcof_mid[j,i]\
+            * (X[j,i+1] - X[j,i])/(dist_grid[i+1] - dist_grid[i])
+        
+        sum = sum - spe_diff_flux[j,i]
+    
+    for j in range(n_species):
+        spe_diff_flux[j,i] = spe_diff_flux[j,i] + Y_mid[j,i]*sum
+
+    mom_diff_flux[i] = mu_mid[i] * (V[i+1] - V[i])/(dist_grid[i+1] - dist_grid[i])
+    ene_diff_flux[i] = therm_cond_mid[i] * (T[i+1] - T[i])/(dist_grid[i+1] - dist_grid[i])
+
+
+
+# ------------------------------------------------------------------------
+# Boundaries
+
+# Left Boundary
+T_f = sub                           # temperature(gas_f)
+rho_f = sub                         # density(gas_f)
+Y_f = sub                           # massFractions(gas_f)
+# Species
+for i in range(n_species):
+    # ff(i) = Y_f[i]
+    x = sub
+# Continuity
+# Radial Momentum
+# Energy
+# Pressure Gradient Eigenvalue      
+# Right Boundary
+T_o = sub                           # temperature(gas_o)
+rho_o = sub                         # density(gas_o)
+Y_i = sub                           # massFractions(gas_o)
+# Species
+# Continuity
+# Radial Momentum
+# Energy
+# Pressure Gradient Eigenvalue
+
+
+# ------------------------------------------------------------------------
+# Points in the Domain
+# H_temp_array = []
+for i in range(2, (n_points - 1)):
+    wdot = ct.netProdRates(gas)
+    cp = ct.cp_mass(gas)
+    cp_R_ref = ct.cp_R(gas)
+    h_RT_ref = ct.enthalpies_RT(gas)
+
+    # Species
+    for j in range(n_species):
+        ff[j+(i-1)*(n_species+4)] =(- 2*F[i]*dYdx[j,i]\
+            - 2*(spe_diff_flux[j,i] - spe_diff_flux[j,i-1])/(dist_grid[i+1] - dist_grid[i-1])\
+            + wdot[j]*mw_species[j])/rho[i]
+        
+    # Continuity
+    ff[i*(n_species+4)-3] = - u[i]*dFdx[i] - 2*F[i]*V[i]
+
+    # Radial Momentum
+    #??? How to do this         Q4
+
+    # Energy
+    sum_df = 0
+    sum_hr = 0
+    for j in range(n_species):
+        sum_df = sum_df + (spe_diff_flux[j,i-1] + spe_diff_flux[j,i])/2 \
+            * cp_R_ref[j]/mw_species[j]
+
+    sum_df = sum_df * R * dTdx[i]
+    sum_hr = sum_hr * R * T[i]
+
+    ff[i*(n_species+4)-1] = (- 2*F[i]*cp*dTdx[i] \
+        + 2*(ene_diff_flux[i] - ene_diff_flux[i-1])/(dist_grid[i+1] - dist_grid[i-1]) \
+        - sum_df - sum_hr)/cp/rho[i]
+    
+    # Pressure Gradient Eigenvalue
+    # Q5
 
