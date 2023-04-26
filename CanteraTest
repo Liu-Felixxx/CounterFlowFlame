@@ -1,5 +1,33 @@
 import cantera as ct 
 
+model = 'ffcm1_h2_9sp.yaml'
+gas = ct.Solution(model)
+species_name = []
 
-gas1 = ct.Solution('gri30.yaml')
+
+for i in range(len(gas.species())-1):
+    species_name.append(gas.species()[i].name)
+    # print(i)
+
+# print(len(gas.species()))
+print(species_name)
+
+
+#------- code that works
+
+# print(gas.species()[1].name)
+# for i in range(len(gas.species())):
+#     print(gas.species()[i].name)
+
+# model = 'gri30.yaml'
+# gas = ct.Solution(model)
+
+# print(gas.name)
+# print(gas.n_species)
+# print(gas.density)
+
+
+# gas1 = ct.Solution('gri30.yaml')
+
+# gas1()
 

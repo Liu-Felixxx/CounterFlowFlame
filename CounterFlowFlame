@@ -22,6 +22,29 @@ import cantera as ct
 
 
 
+if __name__ == "__main__":
+    model = 'ffcm1_h2_9sp.yaml'
+    gas = ct.Solution(model)
+    t_ref = 300.0                   # Temperature, reference
+
+    species_name = gas.name         # list of all species names in gas object
+    nsp = gas.n_species             # number of species
+    p = 1                           # atm, Pressure
+    T_inlet_f = 300.0               # K, Fuel inlet temperature
+    comp_f = 'H2:1'                 # Fuel composition
+    T_inlet_o = 300.0               # K, Oxidizer inlet temperature
+    comp_o = 'O2:1'                 # Oxidizer composition
+
+
+    # Initialization of inlet gas objects
+    gas_f = ct.Solution(model)      # Fuel gas object
+    # set
+    mdot_f = 0.18                   # kg/m^2/s, Fuel mass flux
+    rho_f = gas_f.density           # kg/m^2, Fuel density
+    u_f = mdot_f/rho_f              # m/s, Fuel stream velocity
+
+    # Grid setup
+    # Initial solution guess
 
 
 
