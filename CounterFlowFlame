@@ -10,12 +10,7 @@ Felix Liu
 sub = 1
 
 # Questions
-# what is xx? Is that an array of input/independent variables?
-# what is ff? Is that an array of return values?
-# ctrl+f: 
-#       Q3: What is the set(T, P, Y) for?
-#       Q4: How to solve for radial momentum?
-#       Q5: What is the pressure gradient eigenvalue?
+# Q1, Q2
 
 import numpy as np
 import cantera as ct
@@ -27,9 +22,12 @@ if __name__ == "__main__":
     gas = ct.Solution(model)
     t_ref = 300.0                   # Temperature, reference
 
-    species_name = gas.name         # list of all species names in gas object
-    nsp = gas.n_species             # number of species
-    p = 1                           # atm, Pressure
+    species_name = []               # list of all species names in gas object
+    for i in range(len(gas.species())):
+        species_name.append(gas.species()[i].name)
+    n_species = gas.n_species       # number of species
+    
+    p = 101325                      # Pa, 1 atmospheric pressure
     T_inlet_f = 300.0               # K, Fuel inlet temperature
     comp_f = 'H2:1'                 # Fuel composition
     T_inlet_o = 300.0               # K, Oxidizer inlet temperature
@@ -38,17 +36,75 @@ if __name__ == "__main__":
 
     # Initialization of inlet gas objects
     gas_f = ct.Solution(model)      # Fuel gas object
-    # set
+    gas_f.TPX = (T_inlet_f, p, comp_f)
     mdot_f = 0.18                   # kg/m^2/s, Fuel mass flux
-    rho_f = gas_f.density           # kg/m^2, Fuel density
+    rho_f = gas_f.density           # kg/m^2, Fuel stream density
     u_f = mdot_f/rho_f              # m/s, Fuel stream velocity
 
+    gas_o = ct.Solution(model)      # Oxidizer gas object
+    gas_o.TPX = (T_inlet_o, p, comp_o)
+    mdot_o = 0.72                   # kg/m^2/s, Oxidizer mass flux
+    rho_o = gas_o.density           # kg/m^3, Oxidizer stream density
+    u_o = - mdot_o/rho_o            # m/s, Oxidizer stream velocity
+
+
     # Grid setup
+    domain_len = 0.01               # m, Domain length
+    n_points = 20                  # Number of grid points
+    dist_grid = []
+    for i in range(n_points):
+        num = (domain_len * i)/(n_points-1)
+        dist_grid.append(num)
+
+    X = [[0] * n_points for _ in range(n_species)]
+    Y = [[0] * n_points for _ in range(n_species)]
+    rho = [0]*n_points
+    u = [0]*n_points
+    F = [0]*n_points
+    G = [0]*n_points
+    V = [0]*n_points
+    T = [0]*n_points
+    H = [0]*n_points
+
+
     # Initial solution guess
+    temp_x = np.linspace(-5, 5, n_points)
+    for i in range(len(Y[5])):
+        Y[5][i] = (np.tanh(temp_x[i]) + 1)/2  
+    for i in range(len(Y[2])):
+        Y[2][i] = 1 - Y[5][i]
+    for i in range(len(T)):
+        T[i] = (1 - np.tanh(temp_x[i])**2) * 1500 + 300
+    u = u_f + (u_o - u_f)*np.linspace(0, 1, n_points)
+
+    T[0] = gas_f.T
+    # for i in range(len(Y)):                           # HELP Q1
+    #     Y[i][0] = gas_f.Y
+    T[len(T)-1] = gas_o.T
+    # for i in range(len(Y)):
+    #     Y[i][len(Y[i])-1] = gas_o.Y                     # HELP Q1
+
+    # for i in range(n_species):
+    #     for j in range(n_points):
+        # gas.TPY = (T, p, Y[][i])                      # HELP Q2
+            # X[i][j] = gas.Y                           # HELP Q2
+    for i in range(len(rho)):
+        rho[i] = gas.DP[0]                                # python cantera does not have density only function
+
+    print(rho)
+    print(u)
+
+    F = (rho*u)/2
+    G = [np.diff(F) / np.diff(dist_grid), 0]            # HELP Q3 WHAT IS THIS LINE
+    # G[0] = 0
+    # V = G/rho
+    H = - np.ones(n_points)
+    T_guess = T
+
+    # Numerical method control
 
 
-
-
+"""
 #-------------------------------------------------------------------------------------
 # governingEqnsTransient
 # def governingEqnsTransient(dist_grid, xx, model, ...) 
@@ -238,4 +294,4 @@ for i in range(2, (n_points - 1)):
     
     # Pressure Gradient Eigenvalue
     # Q5
-
+"""
