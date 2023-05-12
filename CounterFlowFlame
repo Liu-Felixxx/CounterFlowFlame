@@ -6,172 +6,296 @@ Felix Liu
 ---------------------------------------
 """
 
-# Notes: change n_species, n_points 
-sub = 1
+# LEFT OFF AT EDITING TIMESTEP
 
 # Questions
 # Q1, Q2
-# test cases:
-# 
 
 import numpy as np
 import cantera as ct
 from time import process_time
 
-
-
-if __name__ == "__main__":
-    model = 'ffcm1_h2_9sp.yaml'
+def governingEqnsTransient(dist_grid, xx, model, gas_f, gas_o, u_f, u_o, p, doenergy, T_guess):
+    # function return
+    ff = np.zeros((len(xx), 1))
     gas = ct.Solution(model)
-    t_ref = 300.0                   # Temperature, reference
 
-    species_name = []               # list of all species names in gas object
-    for i in range(len(gas.species())):
-        species_name.append(gas.species()[i].name)
-    n_species = gas.n_species       # number of species
-    
-    p = 101325                      # Pa, 1 atmospheric pressure
-    T_inlet_f = 300.0               # K, Fuel inlet temperature
-    comp_f = 'H2:1'                 # Fuel composition
-    T_inlet_o = 300.0               # K, Oxidizer inlet temperature
-    comp_o = 'O2:1'                 # Oxidizer composition
+    # Constants
+    R = 8314                                    # gas constant, J/kmol/K
+
+    n_species = gas.n_species                   # number of species
+    n_points = len(dist_grid)                   # number of nodes
 
 
-    # Initialization of inlet gas objects
-    gas_f = ct.Solution(model)      # Fuel gas object
-    gas_f.TPX = (T_inlet_f, p, comp_f)
-    mdot_f = 0.18                   # kg/m^2/s, Fuel mass flux
-    rho_f = gas_f.density           # kg/m^2, Fuel stream density
-    u_f = mdot_f/rho_f              # m/s, Fuel stream velocity
+    # Grids
+    X = np.zeros((n_species, n_points))              # grid of rows: species; columns: node
+    Y = np.zeros((n_species, n_points))
+    rho = np.zeros((1, n_points))
+    u = np.zeros((1, n_points))
 
-    gas_o = ct.Solution(model)      # Oxidizer gas object
-    gas_o.TPX = (T_inlet_o, p, comp_o)
-    mdot_o = 0.72                   # kg/m^2/s, Oxidizer mass flux
-    rho_o = gas_o.density           # kg/m^3, Oxidizer stream density
-    u_o = - mdot_o/rho_o            # m/s, Oxidizer stream velocity
+    F = np.zeros((1, n_points))
+    V = np.zeros((1, n_points))
+    T = np.zeros((1, n_points))
+    H = np.zeros((1, n_points))
+
+    mwm = np.zeros((1, n_points))                        # mean molecular weight
+    mixdiffcof = np.zeros((n_species, n_points))     
+    mu = np.zeros((1, n_points))
+    therm_cond = np.zeros((1, n_points))
+
+    dYdx = np.zeros((n_species, n_points))
+    dudx = np.zeros((1, n_points))
+    dTdx = np.zeros((1, n_points))
+    dFdx = np.zeros((1, n_points))
+    dVdx = np.zeros((1, n_points))
+    dHdx = np.zeros((1, n_points))
+
+    spe_diff_flux = np.zeros((n_species, n_points-1))
+    mom_diff_flux = np.zeros((1, n_points-1))
+    ene_diff_flux = np.zeros((1, n_points-1))
 
 
-    # Grid setup
-    domain_len = 0.01               # m, Domain length
-    n_points = 20                  # Number of grid points
-    dist_grid = []
+    # Midpoint initialization
+    T_mid = np.zeros((1, n_points-1))
+    Y_mid = np.zeros((n_species, n_points-1))
+    rho_mid = np.zeros((1, n_points-1))
+    mwm_mid = np.zeros((1, n_points-1))
+    mixdiffcof_mid = np.zeros((n_species, n_points-1))
+    mu_mid = np.zeros((1, n_points-1))
+    therm_cond_mid = np.zeros((1, n_points-1))
+
+
+    # Initialize
     for i in range(n_points):
-        num = (domain_len * i)/(n_points-1)
-        dist_grid.append(num)
+        for j in range(n_species):
+            Y[j,i] = xx[j+(i-1)*(n_species+4)]
+        F[i] = xx(n_species+1+(i-1)*(n_species+4))
+        V[i] = xx(n_species+2+(i-1)*(n_species+4))
+        T[i] = xx(n_species+3+(i-1)*(n_species+4))
+        H[i] = xx(n_species+4+(i-1)*(n_species+4))
 
-    X = [[0] * n_points for _ in range(n_species)]
-    Y = [[0] * n_points for _ in range(n_species)]
-    rho = [0]*n_points
-    u = [0]*n_points
-    F = [0]*n_points
-    G = [0]*n_points
-    V = [0]*n_points
-    T = [0]*n_points
-    H = [0]*n_points
+    for i in range(n_points):
+        # initialize X, rho, u, mwm, mixdiffcof, mu, therm_cond
+        gas.TPY = (T[i], p, Y[:,i])                          
+        X[:,i] = gas.moleFractions
+        rho[i] = gas.DP[0]
+        u[i] = 2*F[i]/rho[i]
+        mwm[i] = gas.mean_molecular_weight
+        mixdiffcof[:,i] = gas.mix_diff_coeffs
+        mu[i] = gas.viscosity
+        therm_cond[i] = gas.thermal_conductivity
+        
+    mw_species = gas.molecular_weights                            # molecularWeights(gas)
 
-
-    '''Initial solution guess'''
-    temp_x = np.linspace(-5, 5, n_points)
-    for i in range(len(Y[5])):
-        Y[5][i] = (np.tanh(temp_x[i]) + 1)/2  
-    for i in range(len(Y[2])):
-        Y[2][i] = 1 - Y[5][i]
-    for i in range(len(T)):
-        T[i] = (1 - np.tanh(temp_x[i])**2) * 1500 + 300
-    u = u_f + (u_o - u_f)*np.linspace(0, 1, n_points)
-
-    T[0] = gas_f.T
-    # for i in range(len(Y)):                           # HELP Q1
-    #     Y[i][0] = gas_f.Y
-    T[len(T)-1] = gas_o.T
-    # for i in range(len(Y)):
-    #     Y[i][len(Y[i])-1] = gas_o.Y                     # HELP Q1
-
-    # for i in range(n_species):
-    #     for j in range(n_points):
-        # gas.TPY = (T, p, Y[][i])                      
-            # X[i][j] = gas.Y                           
-    for i in range(len(rho)):
-        rho[i] = gas.DP[0]                                # python cantera does not have density only function
-
-    F = (rho*u)/2
-    G = [np.diff(F) / np.diff(dist_grid), 0]
-    # G[0] = 0
-    # V = G/rho
-    H = - np.ones(n_points)
-    T_guess = T
-
-    
-    '''Numerical method control'''          
-    # E1
-    runtime = process_time()
-    tol_ss = [1.0e-3, 1.0e-7] 
-    tol_ts = [1.0e-3, 1.0e-7]
-    bool_newton = False
-    bool_transient = True
-    dt = 2.0e-8
-    time_total = 2.0e-2
-    doenergy = True
-
-
-
-    '''Transient Step'''
-    if bool_transient:
-        plot_count = 1000
-        total_count = time_total/dt
-        plot_index = total_count/plot_count
-
-        transient_count = 1
-
-        # plot stuff
-
-        transient_len = (n_species+4)*n_points
-
-        left_index = []
-        for i in range(n_species+4):
-            left_index.append(i)
-        right_index = []
-        for i in range(((n_species+4)*(n_points-1)+1), (n_species+4)*n_points):
-            right_index.append(i)
-        interior_index = []
-        for i in range((n_species+4+1), (n_species+4)*(n_points-1)):
-            interior_index.append(i)
-
-        transient_x0 = [0]*transient_len
-
-        for i in range(n_points):
+    # Gradients
+    for i in range(1, (n_points-1)):
+        if u[i] >= 0:
             for j in range(n_species):
-                transient_x0[j+(i-1)*(n_species+4)] = Y[j,i]
-            transient_x0[n_species+1+(i-1)*(n_species+4)] = F[i]
-            transient_x0[n_species+2+(i-1)*(n_species+4)] = V[i]
-            transient_x0[n_species+3+(i-1)*(n_species+4)] = T[i]
-            transient_x0[n_species+4+(i-1)*(n_species+4)] = H[i]
+                dYdx[j,i] = (Y[j,i] - Y[j,i-1])/(dist_grid[i] - dist_grid[i-1])      # differential change in species fraction
+            dudx[i] = (u[i] - u[i-1])/(dist_grid[i] - dist_grid[i-1])                # differential change in u velocity
+            dTdx[i] = (T[i] - T[i-1])/(dist_grid[i] - dist_grid[i-1])                # differential change in temperature
+            dFdx[i] = (F[i] - F[i-1])/(dist_grid[i] - dist_grid[i-1])                # differential change in F axial velocity
+            dVdx[i] = (V[i] - V[i-1])/(dist_grid[i] - dist_grid[i-1])                # differential change in V velocity
+            dHdx[i] = (H[i] - H[i-1])/(dist_grid[i] - dist_grid[i-1])                # differential change in H radial momentum
+        else:
+            for j in range(n_species):
+                dYdx[j,i] = (Y[j,i+1] - Y[j,1])/(dist_grid[i+1] - dist_grid[i]) 
+            dudx[i] = (u[i+1] - u[i])/(dist_grid[i+1] - dist_grid[i]) 
+            dTdx[i] = (T[i+1] - T[i])/(dist_grid[i+1] - dist_grid[i]) 
+            dFdx[i] = (F[i+1] - F[i])/(dist_grid[i+1] - dist_grid[i]) 
+            dVdx[i] = (V[i+1] - V[i])/(dist_grid[i+1] - dist_grid[i]) 
+            dHdx[i] = (H[i+1] - H[i])/(dist_grid[i+1] - dist_grid[i]) 
 
-        transient_x1 = transient_x0
-        while transient_count < total_count:
-            # Time Step
-            transient_x1 = TimeStep(dist_grid, transient_x0, dt, model, gas_f, gas_o, u_f, u_o, p, doenergy, T_guess)
-
-            if divmod(transient_count, plot_index) == 0:
-                for i in range(n_points):
-                    for j in range(n_species):
-                        Y[j, i] = transient_x1[n_species+1+(i-1)*(n_species+4)]
-                    F[i] = transient_x1[n_species+1+(i-1)*(n_species+4)]
-                    V[i] = transient_x1[n_species+2+(i-1)*(n_species+4)]
-                    T[i] = transient_x1[n_species+3+(i-1)*(n_species+4)]
-                    H[i] = transient_x1[n_species+4+(i-1)*(n_species+4)]
-
-                # plot stuff
-
-            transient_x0 = transient_x1
-            transient_count = transient_count + 1
-
-    current_time = process_time()
-    total_runtime = current_time - runtime
+    # Midpoint Properties
+    for i in range(n_points - 1):
+        T_mid[i] = (T[i] + T[i+1])/2
+        for j in range(n_species):
+            Y_mid[j,i] = (Y[j,i] + Y[j,i+1])/2
+        gas.TPY = (T_mid[i], p, Y_mid[:,i])
+        Y_mid[:,i] = gas.mass_fraction
+        rho_mid[i] = gas.DP[0]
+        mwm_mid[i] = gas.mean_molecular_weight
+        mixdiffcof_mid[:,i] = gas.mix_diff_coeffs
+        mu_mid[i] = gas.viscosity
+        therm_cond_mid[i] = gas.thermal_conductivity
 
 
+    # Diffusive Flux
+    for i in range(n_points-1):
+        sum = 0
+        for j in range(n_species):
+            spe_diff_flux[j,i] = - mw_species[j] * rho_mid[i]/mwm_mid[i]*mixdiffcof_mid[j,i]\
+                * (X[j,i+1] - X[j,i])/(dist_grid[i+1] - dist_grid[i])
+            
+            sum = sum - spe_diff_flux[j,i]
+        
+        for j in range(n_species):
+            spe_diff_flux[j,i] = spe_diff_flux[j,i] + Y_mid[j,i]*sum
+
+        mom_diff_flux[i] = mu_mid[i] * (V[i+1] - V[i])/(dist_grid[i+1] - dist_grid[i])
+        ene_diff_flux[i] = therm_cond_mid[i] * (T[i+1] - T[i])/(dist_grid[i+1] - dist_grid[i])
+
+
+
+    '''Boundaries'''
+    # Left Boundary
+    T_f = gas_f.T                           # temperature(gas_f)
+    rho_f = gas_f.DP[0]                     # density(gas_f)
+    Y_f = gas_f.Y            # massFractions(gas_f)
+
+    # Species
+    for i in range(n_species):
+        ff[i] = Y_f[i]
+
+
+    # Continuity
+    ff[1+n_species] = rho_f * u_f/2
+
+    # Radial Momentum
+    ff[2+n_species] = 0
+
+    # Energy
+    ff[3+n_species] = T_f
+
+    # Pressure Gradient Eigenvalue   
+    ff[4+n_species] = H[0] 
+    
+    # Right Boundary
+    T_o = gas_o.T                           # temperature(gas_o)
+    rho_o = gas_o.DP[0]                         # density(gas_o)
+    Y_o = gas_o.Y                           # massFractions(gas_o)
+
+    # Species
+    for i in range(n_species):
+        ff[i+(n_species+4)*(n_points-1)] = Y_o[i]
+
+    # Continuity
+    ff[(n_species+4)*n_points-3] = rho_o * u_o/2
+
+    # Radial Momentum
+    ff[(n_species+4)*n_points-2] = 0
+
+    # Energy
+    ff[(n_species+4)*n_points-1] = T_o
+
+    # Pressure Gradient Eigenvalue
+    ff[(n_species+4)*n_points] = H[len(H)-1]
+
+
+    '''Points in the Domain'''
+    # E2
+    H_temp_array = [[0]*1 for _ in range(n_species)]
+    for i in range(2, (n_points - 1)):
+        wdot = gas.net_prod_rates
+        cp = gas.cp_mass
+        cp_R_ref = gas.cp_R
+        h_RT_ref = gas.enthalpies_RT
+
+        # Species
+        for j in range(n_species):
+            ff[j+(i-1)*(n_species+4)] =(- 2*F[i]*dYdx[j,i]\
+                - 2*(spe_diff_flux[j,i] - spe_diff_flux[j,i-1])/(dist_grid[i+1] - dist_grid[i-1])\
+                + wdot[j]*mw_species[j])/rho[i]
+            
+        # Continuity
+        ff[i*(n_species+4)-3] = - u[i]*dFdx[i] - 2*F[i]*V[i]
+
+        # Radial Momentum
+        H_temp = - 2*F[i]*dVdx[i] + 2*(mom_diff_flux[i] - mom_diff_flux[i-1])/(dist_grid[i+1] - dist_grid[i-1]) \
+            - rho[i]*V[i]*V[i]
+        ff[i*(n_species+4)-2] = (H_temp - H[i])/rho[i]
+        H_temp_array[i-1] = H_temp
+
+        # Energy
+        if doenergy:
+            sum_df = 0
+            sum_hr = 0
+            for j in range(n_species):
+                sum_df = sum_df + (spe_diff_flux[j,i-1] + spe_diff_flux[j,i])/2 \
+                    * cp_R_ref[j]/mw_species[j]
+
+            sum_df = sum_df * R * dTdx[i]
+            sum_hr = sum_hr * R * T[i]
+
+            ff[i*(n_species+4)-1] = (- 2*F[i]*cp*dTdx[i] \
+                + 2*(ene_diff_flux[i] - ene_diff_flux[i-1])/(dist_grid[i+1] - dist_grid[i-1]) \
+                - sum_df - sum_hr)/cp/rho[i]
+        else:
+            ff[i*(n_species+4)-1] = T[i] - T_guess[i]
+        
+        # Pressure Gradient Eigenvalue
+        ff[i*(n_species+4)] = - u[i]*dHdx[i]
+
+    H_temp = np.mean(H_temp_array)
+
+    return [ff, H_temp]
+
+def TimeStep(dist_grid, transient_x0, dt, model, gas_f, gas_o, u_f, u_o, p, doenergy, T_guess):
+    gas = ct.Solution(model)
+    n_species = gas.nSpecies
+    n_points = len(dist_grid)
+
+    left_index = []
+    for i in range(n_species+4):
+        left_index.append(i)
+    right_index = []
+    for i in range(((n_species+4)*(n_points-1)+1), (n_species+4)*n_points):
+        right_index.append(i)
+    interior_index = []
+    for i in range((n_species+4+1), (n_species+4)*(n_points-1)):
+        interior_index.append(i)
+
+    # Governing Equations
+    transient_x1 = transient_x0
+    [transient_f0, H_Temp] = governingEqnsTransient(dist_grid, transient_x0, model, gas_f, gas_o, u_f, u_o, p, doenergy, T_guess)
+
+    # Update
+    transient_x1[interior_index] = transient_x0[interior_index] + transient_f0[interior_index]*dt
+    transient_x1[left_index] = transient_f0[left_index]
+    transient_x1[right_index] = transient_f0[right_index]
+
+    for i in range(n_points):
+        for j in range(n_species):
+            Y[j,i] = transient_x1[j+(i-1)*(n_species+4)]
+        F[i] = transient_x1[n_species+1+(i-1)*(n_species+4)]
+        V[i] = transient_x1[n_species+2+(i-1)*(n_species+4)]
+        T[i] = transient_x1[n_species+3+(i-1)*(n_species+4)]
+        H[i] = transient_x1[n_species+4+(i-1)*(n_species+4)]
+
+    for i in range(n_points):
+        # gas.TPY = (T[i], p, Y[i])
+        # Y[i] = gas.Y
+        # X[i] = gas.X
+        rho[i] = gas.DP[0]
+        G[i] = - V[i]*rho[i]
+        u[i] = 2*F[i]/rho[i]
+
+    for i in range(2, n_points-1):
+        if u[i] >= 0:
+            F[i] = F[i-1] + (G[i]+ G[i-1])/2 * (dist_grid[i] - dist_grid[i-1])
+
+    for i in range((n_points-1), -1, 2):
+        if u[i] < 0:
+            F[i] = F[i+1] - (G[i+1] + G[i])/2 * (dist_grid[i+1] - dist_grid[i])
+
+    u = 2*F/rho
+    H = H_Temp
+
+    for i in range(n_points):
+        for j in range(n_species):
+            transient_x0[j+(i-1)*(n_species+4)] = Y[j,i]
+        transient_x0[n_species+1+(i-1)*(n_species+4)] = F[i]
+        transient_x0[n_species+2+(i-1)*(n_species+4)] = V[i]
+        transient_x0[n_species+3+(i-1)*(n_species+4)] = T[i]
+        transient_x0[n_species+4+(i-1)*(n_species+4)] = H[i]
+        
+    return transient_x1
+
+
+
+## USING PYTHON LISTS
+"""
 # Functions -----------------------------------------------------------------------------------------
-
 def governingEqnsTransient(dist_grid, xx, model, gas_f, gas_o, u_f, u_o, p, T_guess):
     # function return
     ff = [0]*len(xx)
@@ -390,7 +514,6 @@ def governingEqnsTransient(dist_grid, xx, model, gas_f, gas_o, u_f, u_o, p, T_gu
 
     return [ff, H_temp]
 
-
 def TimeStep(dist_grid, transient_x0, dt, model, gas_f, gas_o, u_f, u_o, p, doenergy, T_guess):
     gas = ct.Solution(model)
     n_species = gas.nSpecies
@@ -451,3 +574,158 @@ def TimeStep(dist_grid, transient_x0, dt, model, gas_f, gas_o, u_f, u_o, p, doen
         transient_x0[n_species+4+(i-1)*(n_species+4)] = H[i]
         
     return transient_x1
+
+
+# Main ----------------------------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    model = 'ffcm1_h2_9sp.yaml'
+    gas = ct.Solution(model)
+    t_ref = 300.0                   # Temperature, reference
+
+    species_name = []               # list of all species names in gas object
+    for i in range(len(gas.species())):
+        species_name.append(gas.species()[i].name)
+    n_species = gas.n_species       # number of species
+    
+    p = 101325                      # Pa, 1 atmospheric pressure
+    T_inlet_f = 300.0               # K, Fuel inlet temperature
+    comp_f = 'H2:1'                 # Fuel composition
+    T_inlet_o = 300.0               # K, Oxidizer inlet temperature
+    comp_o = 'O2:1'                 # Oxidizer composition
+
+
+    # Initialization of inlet gas objects
+    gas_f = ct.Solution(model)      # Fuel gas object
+    gas_f.TPX = (T_inlet_f, p, comp_f)
+    mdot_f = 0.18                   # kg/m^2/s, Fuel mass flux
+    rho_f = gas_f.density           # kg/m^2, Fuel stream density
+    u_f = mdot_f/rho_f              # m/s, Fuel stream velocity
+
+    gas_o = ct.Solution(model)      # Oxidizer gas object
+    gas_o.TPX = (T_inlet_o, p, comp_o)
+    mdot_o = 0.72                   # kg/m^2/s, Oxidizer mass flux
+    rho_o = gas_o.density           # kg/m^3, Oxidizer stream density
+    u_o = - mdot_o/rho_o            # m/s, Oxidizer stream velocity
+
+
+    # Grid setup
+    domain_len = 0.01               # m, Domain length
+    n_points = 20                  # Number of grid points
+    dist_grid = []
+    for i in range(n_points):
+        num = (domain_len * i)/(n_points-1)
+        dist_grid.append(num)
+
+    X = [[0] * n_points for _ in range(n_species)]
+    Y = [[0] * n_points for _ in range(n_species)]
+    rho = [0]*n_points
+    u = [0]*n_points
+    F = [0]*n_points
+    G = [0]*n_points
+    V = [0]*n_points
+    T = [0]*n_points
+    H = [0]*n_points
+
+
+    '''Initial solution guess'''
+    temp_x = np.linspace(-5, 5, n_points)
+    for i in range(len(Y[5])):
+        Y[5][i] = (np.tanh(temp_x[i]) + 1)/2  
+    for i in range(len(Y[2])):
+        Y[2][i] = 1 - Y[5][i]
+    for i in range(len(T)):
+        T[i] = (1 - np.tanh(temp_x[i])**2) * 1500 + 300
+    u = u_f + (u_o - u_f)*np.linspace(0, 1, n_points)
+
+    T[0] = gas_f.T
+    # for i in range(len(Y)):                           # HELP Q1
+    #     Y[i][0] = gas_f.Y
+    T[len(T)-1] = gas_o.T
+    # for i in range(len(Y)):
+    #     Y[i][len(Y[i])-1] = gas_o.Y                     # HELP 
+    
+
+    # for i in range(n_species):
+    #     for j in range(n_points):
+        # gas.TPY = (T, p, Y[][i])                      
+            # X[i][j] = gas.Y                           
+    for i in range(len(rho)):
+        rho[i] = gas.DP[0]                                # python cantera does not have density only function
+
+    F = (rho*u)/2
+    G = [np.diff(F) / np.diff(dist_grid), 0]
+    # G[0] = 0
+    # V = G/rho
+    H = - np.ones(n_points)
+    T_guess = T
+
+    
+    '''Numerical method control'''          
+    # E1
+    runtime = process_time()
+    tol_ss = [1.0e-3, 1.0e-7] 
+    tol_ts = [1.0e-3, 1.0e-7]
+    bool_newton = False
+    bool_transient = True
+    dt = 2.0e-8
+    time_total = 2.0e-2
+    doenergy = True
+
+
+
+    '''Transient Step'''
+    if bool_transient:
+        plot_count = 1000
+        total_count = time_total/dt
+        plot_index = total_count/plot_count
+
+        transient_count = 1
+
+        # plot stuff
+
+        transient_len = (n_species+4)*n_points
+
+        left_index = []
+        for i in range(n_species+4):
+            left_index.append(i)
+        right_index = []
+        for i in range(((n_species+4)*(n_points-1)+1), (n_species+4)*n_points):
+            right_index.append(i)
+        interior_index = []
+        for i in range((n_species+4+1), (n_species+4)*(n_points-1)):
+            interior_index.append(i)
+
+        transient_x0 = [0]*transient_len
+
+        for i in range(n_points):
+            for j in range(n_species):
+                transient_x0[j+(i-1)*(n_species+4)] = Y[j,i]
+            transient_x0[n_species+1+(i-1)*(n_species+4)] = F[i]
+            transient_x0[n_species+2+(i-1)*(n_species+4)] = V[i]
+            transient_x0[n_species+3+(i-1)*(n_species+4)] = T[i]
+            transient_x0[n_species+4+(i-1)*(n_species+4)] = H[i]
+
+        transient_x1 = transient_x0
+        while transient_count < total_count:
+            # Time Step
+            transient_x1 = TimeStep(dist_grid, transient_x0, dt, model, gas_f, gas_o, u_f, u_o, p, doenergy, T_guess)
+
+            if divmod(transient_count, plot_index) == 0:
+                for i in range(n_points):
+                    for j in range(n_species):
+                        Y[j, i] = transient_x1[n_species+1+(i-1)*(n_species+4)]
+                    F[i] = transient_x1[n_species+1+(i-1)*(n_species+4)]
+                    V[i] = transient_x1[n_species+2+(i-1)*(n_species+4)]
+                    T[i] = transient_x1[n_species+3+(i-1)*(n_species+4)]
+                    H[i] = transient_x1[n_species+4+(i-1)*(n_species+4)]
+
+                # plot stuff
+
+            transient_x0 = transient_x1
+            transient_count = transient_count + 1
+
+    current_time = process_time()
+    total_runtime = current_time - runtime
+"""
+

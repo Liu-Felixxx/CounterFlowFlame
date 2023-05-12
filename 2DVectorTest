@@ -1,5 +1,17 @@
+import numpy as np
 
-print('hello')
+
+nsp = 2
+num_pts = 4
+Y_grid = np.zeros((nsp, num_pts))
+
+print(Y_grid)
+
+Y_grid[0,:] = 2
+
+print(Y_grid)
+
+# print('hello')
 
 # n = 15
 # n_species = 5
