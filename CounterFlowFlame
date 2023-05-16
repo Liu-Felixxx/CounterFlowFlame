@@ -77,7 +77,7 @@ def governingEqnsTransient(dist_grid, xx, model, gas_f, gas_o, u_f, u_o, p, doen
     for i in range(n_points):
         # initialize X, rho, u, mwm, mixdiffcof, mu, therm_cond
         gas.TPY = (T[i], p, Y[:,i])                          
-        X[:,i] = gas.moleFractions
+        X[:,i] = gas.X
         rho[i] = gas.DP[0]
         u[i] = 2*F[i]/rho[i]
         mwm[i] = gas.mean_molecular_weight
@@ -263,9 +263,9 @@ def TimeStep(dist_grid, transient_x0, dt, model, gas_f, gas_o, u_f, u_o, p, doen
         H[i] = transient_x1[n_species+4+(i-1)*(n_species+4)]
 
     for i in range(n_points):
-        # gas.TPY = (T[i], p, Y[i])
-        # Y[i] = gas.Y
-        # X[i] = gas.X
+        gas.TPY = (T[i], p, Y[:,i])
+        Y[i] = gas.Y
+        X[:,i] = gas.X
         rho[i] = gas.DP[0]
         G[i] = - V[i]*rho[i]
         u[i] = 2*F[i]/rho[i]
@@ -290,6 +290,156 @@ def TimeStep(dist_grid, transient_x0, dt, model, gas_f, gas_o, u_f, u_o, p, doen
         transient_x0[n_species+4+(i-1)*(n_species+4)] = H[i]
         
     return transient_x1
+
+if __name__ == "__main__":
+    model = 'ffcm1_h2_9sp.yaml'
+    gas = ct.Solution(model)
+    t_ref = 300.0                   # Temperature, reference
+
+    species_name = []               # list of all species names in gas object
+    for i in range(len(gas.species())):
+        species_name.append(gas.species()[i].name)
+    n_species = gas.n_species       # number of species
+    
+    p = 101325                      # Pa, 1 atmospheric pressure
+    T_inlet_f = 300.0               # K, Fuel inlet temperature
+    comp_f = 'H2:1'                 # Fuel composition
+    T_inlet_o = 300.0               # K, Oxidizer inlet temperature
+    comp_o = 'O2:1'                 # Oxidizer composition
+
+
+    # Initialization of inlet gas objects
+    gas_f = ct.Solution(model)      # Fuel gas object
+    gas_f.TPX = (T_inlet_f, p, comp_f)
+    mdot_f = 0.18                   # kg/m^2/s, Fuel mass flux
+    rho_f = gas_f.density           # kg/m^2, Fuel stream density
+    u_f = mdot_f/rho_f              # m/s, Fuel stream velocity
+
+    gas_o = ct.Solution(model)      # Oxidizer gas object
+    gas_o.TPX = (T_inlet_o, p, comp_o)
+    mdot_o = 0.72                   # kg/m^2/s, Oxidizer mass flux
+    rho_o = gas_o.density           # kg/m^3, Oxidizer stream density
+    u_o = - mdot_o/rho_o            # m/s, Oxidizer stream velocity
+
+
+    # Grid setup
+    domain_len = 0.01               # m, Domain length
+    n_points = 20                  # Number of grid points
+    dist_grid = []
+    for i in range(n_points):
+        num = (domain_len * i)/(n_points-1)
+        dist_grid.append(num)
+
+    X = np.zeros((n_species, n_points))
+    Y = np.zeros((n_species, n_points))
+    rho = np.zeros((1, n_points))
+    u = np.zeros((1, n_points))
+    F = np.zeros((1, n_points))
+    G = np.zeros((1, n_points))
+    V = np.zeros((1, n_points))
+    T = np.zeros((1, n_points))
+    H = np.zeros((1, n_points))
+
+
+    '''Initial solution guess'''
+    temp_x = np.linspace(-5, 5, n_points)
+    for i in range(len(Y[5])):
+        Y[5][i] = (np.tanh(temp_x[i]) + 1)/2  
+    for i in range(len(Y[2])):
+        Y[2][i] = 1 - Y[5][i]
+    for i in range(len(T)):
+        T[i] = (1 - np.tanh(temp_x[i])**2) * 1500 + 300
+    u = u_f + (u_o - u_f)*np.linspace(0, 1, n_points)
+
+    T[0] = gas_f.T
+    for i in range(len(Y)):                           
+        Y[:,1] = gas_f.Y
+    T[len(T)-1] = gas_o.T
+    for i in range(len(Y)):
+        Y[:,(len(Y)-1)] = gas_o.Y                   
+    
+
+    # for i in range(n_points):
+    #     Y_temp = np.ndarray(Y[:,i])
+    #     type(Y_temp)
+    #     gas.TPY = (T[i], p, Y_temp)                      
+    #     X[:,i] = gas.X                          
+    #     rho[i] = gas.DP[0]                                # python cantera does not have density only function
+
+    F = (rho*u)/2
+    G = [np.diff(F) / np.diff(dist_grid), 0]
+    G[0] = 0
+    V = G/rho
+    H = - np.ones(n_points)
+    T_guess = T
+
+    
+    '''Numerical method control'''          
+    # E1
+    runtime = process_time()
+    tol_ss = [1.0e-3, 1.0e-7] 
+    tol_ts = [1.0e-3, 1.0e-7]
+    bool_newton = False
+    bool_transient = True
+    dt = 2.0e-8
+    time_total = 2.0e-2
+    doenergy = True
+
+
+
+    '''Transient Step'''
+    if bool_transient:
+        plot_count = 1000
+        total_count = time_total/dt
+        plot_index = total_count/plot_count
+
+        transient_count = 1
+
+        # plot stuff
+
+        transient_len = (n_species+4)*n_points
+
+        left_index = []
+        for i in range(n_species+4):
+            left_index.append(i)
+        right_index = []
+        for i in range(((n_species+4)*(n_points-1)+1), (n_species+4)*n_points):
+            right_index.append(i)
+        interior_index = []
+        for i in range((n_species+4+1), (n_species+4)*(n_points-1)):
+            interior_index.append(i)
+
+        transient_x0 = [0]*transient_len
+
+        for i in range(n_points):
+            for j in range(n_species):
+                transient_x0[j+(i-1)*(n_species+4)] = Y[j,i]
+            transient_x0[n_species+1+(i-1)*(n_species+4)] = F[i]
+            transient_x0[n_species+2+(i-1)*(n_species+4)] = V[i]
+            transient_x0[n_species+3+(i-1)*(n_species+4)] = T[i]
+            transient_x0[n_species+4+(i-1)*(n_species+4)] = H[i]
+
+        transient_x1 = transient_x0
+        while transient_count < total_count:
+            # Time Step
+            transient_x1 = TimeStep(dist_grid, transient_x0, dt, model, gas_f, gas_o, u_f, u_o, p, doenergy, T_guess)
+
+            if divmod(transient_count, plot_index) == 0:
+                for i in range(n_points):
+                    for j in range(n_species):
+                        Y[j, i] = transient_x1[n_species+1+(i-1)*(n_species+4)]
+                    F[i] = transient_x1[n_species+1+(i-1)*(n_species+4)]
+                    V[i] = transient_x1[n_species+2+(i-1)*(n_species+4)]
+                    T[i] = transient_x1[n_species+3+(i-1)*(n_species+4)]
+                    H[i] = transient_x1[n_species+4+(i-1)*(n_species+4)]
+
+                # plot stuff
+
+            transient_x0 = transient_x1
+            transient_count = transient_count + 1
+
+    current_time = process_time()
+    total_runtime = current_time - runtime
 
 
 

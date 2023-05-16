@@ -1,15 +1,19 @@
 import numpy as np
 
 
-nsp = 2
-num_pts = 4
-Y_grid = np.zeros((nsp, num_pts))
+n_points = 4
+for i in range(n_points):
+    print(i)
 
-print(Y_grid)
+# nsp = 2
+# num_pts = 4
+# Y_grid = np.zeros((nsp, num_pts))
 
-Y_grid[0,:] = 2
+# print(Y_grid)
 
-print(Y_grid)
+# Y_grid[0,:] = 2
+
+# print(Y_grid)
 
 # print('hello')
 
