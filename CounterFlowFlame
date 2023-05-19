@@ -358,17 +358,26 @@ if __name__ == "__main__":
     for i in range(len(Y)):
         Y[:,(len(Y)-1)] = gas_o.Y                   
     
+    Y_dict = []
+    for i in range(n_species):
+        species_name_pos = [species_name[i]] * n_species
+        Y_dict.append(dict(zip(species_name, Y[:,i])))      
 
-    # for i in range(n_points):
-    #     Y_temp = np.ndarray(Y[:,i])
-    #     type(Y_temp)
-    #     gas.TPY = (T[i], p, Y_temp)                      
-    #     X[:,i] = gas.X                          
-    #     rho[i] = gas.DP[0]                                # python cantera does not have density only function
+    for i in range(n_species):
+        Y_dict_pos = Y_dict[i]
+        T_pos = T[:,i]
+        gas.TPY = T_pos, p, Y_dict_pos                
+        X[:,i] = gas.X                          
+        rho[:i] = gas.density                              # python cantera does not have density only function
 
     F = (rho*u)/2
-    G = [np.diff(F) / np.diff(dist_grid), 0]
+    G = [(np.diff(F) / np.diff(dist_grid)), 0]
     G[0] = 0
+    G = np.array(G)
+    rho = np.array(rho)
+    print(F)
+    print(G)
+    print(rho)
     V = G/rho
     H = - np.ones(n_points)
     T_guess = T

@@ -2,6 +2,20 @@ import cantera as ct
 import numpy as np
 
 
+gas = ct.Solution('gri30.xml')  # Load the chemical mechanism
+
+T = 1000  # Temperature in Kelvin
+P = 1.0e5  # Pressure in Pascal
+Y = {'CH4': 0.5, 'O2': 0.5}  # Composition as a dictionary, representing mass fractions
+
+gas.TPY = T, P, Y  # Set the state using temperature, pressure, and composition
+
+density = gas.density
+
+print("Density:", density)
+
+
+
 # x = [[0]*5]*2
 # print(len(x[0]))
 
@@ -36,7 +50,7 @@ import numpy as np
 # print(gas.density)
 
 
-gas1 = ct.Solution('gri30.yaml')
+# gas1 = ct.Solution('gri30.yaml')
 
-gas1()
+# gas1()
 
