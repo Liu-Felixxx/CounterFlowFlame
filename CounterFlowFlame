@@ -191,7 +191,7 @@ def governingEqnsTransient(dist_grid, xx, model, gas_f, gas_o, u_f, u_o, p, doen
 
     '''Points in the Domain'''
     # E2
-    H_temp_array = [[0]*1 for _ in range(n_species)]
+    H_temp_array = [[0]*1 for _ in range(n_points)]
     for i in range(2, (n_points - 1)):
         wdot = gas.net_production_rates
         cp = gas.cp_mass
@@ -211,7 +211,6 @@ def governingEqnsTransient(dist_grid, xx, model, gas_f, gas_o, u_f, u_o, p, doen
         H_temp = - 2*F[:,i]*dVdx[:,i] + 2*(mom_diff_flux[:,i] - mom_diff_flux[:,i-1])/(dist_grid[i+1] - dist_grid[i-1]) \
             - rho[:,i]*V[:,i]*V[:,i]
         ff[i*(n_species+4)-3] = (H_temp - H[:,i])/rho[:,i]
-        print(H_temp_array)
         H_temp_array[i-1] = H_temp
 
         # Energy
@@ -243,15 +242,9 @@ def TimeStep(dist_grid, transient_x0, dt, model, gas_f, gas_o, u_f, u_o, p, doen
     n_species = gas.n_species
     n_points = len(dist_grid)
 
-    left_index = []
-    for i in range(n_species+4):
-        left_index.append(i)
-    right_index = []
-    for i in range(((n_species+4)*(n_points-1)+1), (n_species+4)*n_points):
-        right_index.append(i)
-    interior_index = []
-    for i in range((n_species+4+1), (n_species+4)*(n_points-1)):
-        interior_index.append(i)
+    left_index = slice(1, n_species+4)
+    right_index = slice((n_species+4)*(n_points-1)+1), ((n_species+4)*n_points)
+    interior_index = slice((n_species+4+1), (n_species+4)*(n_points-1))
 
     # Governing Equations
     transient_x1 = transient_x0
@@ -260,6 +253,7 @@ def TimeStep(dist_grid, transient_x0, dt, model, gas_f, gas_o, u_f, u_o, p, doen
     # Update
     transient_x1[interior_index] = transient_x0[interior_index] + transient_f0[interior_index]*dt
     transient_x1[left_index] = transient_f0[left_index]
+    print(right_index)
     transient_x1[right_index] = transient_f0[right_index]
 
     for i in range(n_points):
